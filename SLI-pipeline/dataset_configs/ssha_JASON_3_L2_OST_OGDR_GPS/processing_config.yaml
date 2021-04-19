@@ -1,9 +1,10 @@
 # =====================================================
 # Dataset
 # =====================================================
-ds_name: "ssh_SENTINEL_3A_s1-rads" # Name for dataset
-version: 2.0
-processor: along_track
+ds_name: "ssha_JASON_3_L2_OST_OGDR_GPS" # Name for dataset
+version: 15.0
+processor: gps
+index_type: along_track
 
 # =====================================================
 # Solr

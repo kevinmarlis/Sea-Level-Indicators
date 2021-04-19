@@ -1,9 +1,10 @@
 # =====================================================
 # Dataset
 # =====================================================
-ds_name: "ssha_JASON_3_L2_OST_OGDR_GPS" # Name for dataset
-version: 15.0
-processor: shalin
+ds_name: "sla_SEA_SURFACE_HEIGHT_ALT_GRIDS_L4_2SATS_5DAY_6THDEG_V_JPL1812" # Name for dataset
+version: 1.0
+processor: measures_grids
+index_type: gridded
 
 # =====================================================
 # Solr
