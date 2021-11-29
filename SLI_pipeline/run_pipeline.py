@@ -10,11 +10,14 @@ from pathlib import Path
 
 import requests
 import yaml
+from webdav3.client import Client
+from matplotlib import pyplot as plt
 
 from cycle_creation import cycle_creation
 from harvester import harvester
 from indicators import indicators
 from regridding import regridding
+from plotting import plot_generation
 from utils import solr_utils
 
 RUN_TIME = datetime.now()
@@ -28,6 +31,8 @@ logging.config.fileConfig(f'{logs_path}/log.ini',
 log = logging.getLogger(__name__)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("webdav3").setLevel(logging.WARNING)
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 # Hardcoded output directory path for pipeline files
 OUTPUT_DIR = Path('/Users/marlis/Developer/SLI/sealevel_output/')
@@ -42,8 +47,9 @@ print(f'\nUsing output directory: {OUTPUT_DIR}')
 try:
     solr_utils.ping_solr()
 except requests.ConnectionError:
+    print('Solr is not currently running! Start Solr and try again.')
     log.fatal('Solr is not currently running! Start Solr and try again.')
-    exit()
+    # exit()
 
 ds_status = defaultdict(list)
 
@@ -242,7 +248,6 @@ def run_indexing(output_dir, reprocess):
 
 
 def run_plot_generation(output_dir):
-    import plot_generation
     plot_success = False
     try:
         plot_generation.main(output_dir)
@@ -383,8 +388,7 @@ if __name__ == '__main__':
             # run_txt_gen_and_post(OUTPUT_DIR)
 
     elif CHOSEN_OPTION == '7':
-        run_plot_generation(OUTPUT_DIR)
-        pass
-        # run_txt_gen_and_post(OUTPUT_DIR)
+        # run_plot_generation(OUTPUT_DIR)
+        run_txt_gen_and_post(OUTPUT_DIR)
 
     print_statuses()

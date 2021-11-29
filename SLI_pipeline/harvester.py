@@ -4,7 +4,6 @@ This module handles data granule harvesting for datasets hosted locally and on P
 
 import logging
 import logging.config
-import shutil
 from datetime import datetime
 from pathlib import Path
 from xml.etree.ElementTree import fromstring
@@ -155,6 +154,7 @@ def podaac_harvester(config, docs, target_dir):
                     if expected_size == item['file_size_l']:
                         item['harvest_success_b'] = True
                     else:
+                        log.debug(f'{ds_name} {filename} incomplete download.')
                         item['harvest_success_b'] = False
 
                 except:
@@ -199,7 +199,10 @@ def podaac_drive_harvester(config, docs, target_dir):
         source (str): PODAAC Restricted Drive url for the specific dataset
     """
     ds_name = config['ds_name']
-    webdav_ds_name = ds_name.lower().replace('_', '-') + '/'
+    if ds_name == 'MERGED_ALT':
+        webdav_ds_name = ds_name.lower() + '/'
+    else:
+        webdav_ds_name = ds_name.lower().replace('_', '-') + '/'
 
     now = datetime.utcnow()
     date_regex = config['date_regex']
@@ -227,6 +230,13 @@ def podaac_drive_harvester(config, docs, target_dir):
         raise(f'Unable to login to r-drive. {e}')
 
     ds_years = client.list(webdav_ds_name)[1:]
+
+    start_year = start_time[:4]
+    end_year = end_time[:4]
+    years_range = list(range(int(start_year), int(end_year)+1))
+
+    ds_years = [y for y in ds_years if int(y[:-1]) in years_range]
+    ds_years.sort()
 
     def date_filter(f):
         date = f['path'].split('_')[-1].split('.')[0][3:]
@@ -306,6 +316,7 @@ def podaac_drive_harvester(config, docs, target_dir):
                     if int(expected_size) == item['file_size_l']:
                         item['harvest_success_b'] = True
                     else:
+                        log.debug(f'{ds_name} {filename} incomplete download.')
                         item['harvest_success_b'] = False
 
                 except:
