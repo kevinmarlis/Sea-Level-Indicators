@@ -5,13 +5,13 @@ import logging
 import warnings
 from datetime import datetime
 from pathlib import Path
+from shutil import copyfile
 
 import numpy as np
 import pyresample as pr
 import xarray as xr
 from netCDF4 import default_fillvals
 from pyresample.utils import check_and_wrap
-from scipy.optimize import leastsq
 
 from utils import file_utils, solr_utils
 
@@ -192,21 +192,11 @@ def save_files(date, output_dir, indicator_ds, globals_ds, pattern_and_anom_das)
 
 
 def concat_files(indicator_dir, type, pattern):
-    # Glob MEASURES_1812 files
-    measures_path = indicator_dir / f'MEASURES_1812/cycle_{type}s' / pattern
-    measures_files = [x for x in measures_path.glob('*.nc') if x.is_file()]
-    measures_files.sort()
-    # last_measures_date = str(measures_files[-1].name)[:10]
-
     # Glob DAILY indicators
-    # This is where we prefer MEASURES over DAILY
     daily_path = indicator_dir / f'DAILY/cycle_{type}s' / pattern
-    # daily_files = [x for x in daily_path.glob(
-    #     '*.nc') if x.is_file() and str(x.name[:10]) > last_measures_date]
     daily_files = [x for x in daily_path.glob('*.nc') if x.is_file()]
     daily_files.sort()
 
-    # files = measures_files + daily_files
     files = daily_files
 
     if pattern:
@@ -243,10 +233,17 @@ def indicators(output_path, reprocess):
         indicator_metadata = indicator_query[0]
         modified_time = indicator_metadata['modified_time_dt']
 
+        # Copy old indicator file as backup
+        try:
+            indicator_path = indicator_metadata['indicator_filepath_s']
+            backup_path = f'{indicator_path.split(".")[0]}_backup.nc'
+            copyfile(indicator_path, backup_path)
+        except Exception as e:
+            log.exception(f'Error creating indicator backup: {e}')
+
     # Query for update cycles after modified_time
-    fq = ['type_s:regridded_cycle', 'processing_success_b:true',
-          f'processing_time_dt:[{modified_time} TO NOW]',
-          f'combination_s:(*DAILY* OR *1812*)']
+    fq = ['type_s:gridded_cycle', 'processing_success_b:true',
+          f'processing_time_dt:[{modified_time} TO NOW]']
 
     updated_cycles = solr_utils.solr_query(fq, sort='start_date_dt asc')
 
@@ -322,19 +319,18 @@ def indicators(output_path, reprocess):
 
     for cycle in updated_cycles:
         try:
-            # Setup output directories (either MEASURES_1812 or DAILY)
-            regrid_combination = cycle['combination_s']
-            output_dir = output_path / 'indicator' / regrid_combination
+            # Setup output directories
+            output_dir = output_path / 'indicator' / 'daily'
             output_dir.mkdir(parents=True, exist_ok=True)
 
             cycle_ds = xr.open_dataset(cycle['filepath_s'])
             cycle_ds.close()
 
-            date = cycle['center_date_dt'][:10]
+            date = cycle['date_dt'][:10]
 
             print(f' - Calculating index values for {date}')
 
-            ct = np.datetime64(cycle_ds.cycle_center)
+            ct = np.datetime64(date)
 
             # Area mask the cycle data
             global_dam = cycle_ds.where(
@@ -413,8 +409,7 @@ def indicators(output_path, reprocess):
             globals_ds = global_dsm
             globals_ds = globals_ds.expand_dims(time=[globals_ds.time.values])
 
-            # Save indicators ds, global ds, and individual pattern ds for
-            # this one cycle
+            # Save indicators ds, global ds, and individual pattern ds for this one cycle
             save_files(date, output_dir, indicator_ds,
                        globals_ds, pattern_and_anom_das)
 
@@ -425,7 +420,7 @@ def indicators(output_path, reprocess):
     print('Merging and saving final indicator products.\n')
 
     # ==============================================
-    # Combine MEASURES and DAILY indicator files
+    # Combine DAILY indicator files
     # ==============================================
 
     try:
@@ -471,6 +466,7 @@ def indicators(output_path, reprocess):
     }
 
     if update:
+        indicator_meta['prior_end_dt'] = indicator_query[0]['end_date_dt']
         indicator_meta['id'] = indicator_query[0]['id']
 
     # Update Solr with dataset metadata
