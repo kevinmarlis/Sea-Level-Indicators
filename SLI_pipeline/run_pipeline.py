@@ -78,7 +78,7 @@ def run_post_processing():
     try:
         generate_plots()
     except Exception as e:
-        logging.error(f'Plot generation failed: {e}')
+        logging.exception(f'Plot generation failed: {e}')
 
     try:
         generate_txt()
